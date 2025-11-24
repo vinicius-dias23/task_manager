@@ -6,13 +6,16 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Task Manager',
-      theme: ThemeData(primarySwatch: Colors.blue),
+      theme: ThemeData(
+        useMaterial3: true, // Habilita Material Design 3
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+      ),
       home: const TaskListScreen(),
     );
   }

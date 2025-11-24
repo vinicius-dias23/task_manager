@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/task.dart';
 import '../services/database_service.dart';
+import './task_form_screen.dart';
 
 class TaskListScreen extends StatefulWidget {
-  const TaskListScreen({Key? key}) : super(key: key);
+  const TaskListScreen({super.key});
 
   @override
   State<TaskListScreen> createState() => _TaskListScreenState();
@@ -11,7 +12,6 @@ class TaskListScreen extends StatefulWidget {
 
 class _TaskListScreenState extends State<TaskListScreen> {
   List<Task> _tasks = [];
-  final _titleController = TextEditingController();
 
   @override
   void initState() {
@@ -24,13 +24,17 @@ class _TaskListScreenState extends State<TaskListScreen> {
     setState(() => _tasks = tasks);
   }
 
-  Future<void> _addTask() async {
-    if (_titleController.text.trim().isEmpty) return;
+  void _navigateToTaskForm({Task? task}) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TaskFormScreen(task: task),
+      ),
+    );
 
-    final task = Task(title: _titleController.text.trim());
-    await DatabaseService.instance.create(task);
-    _titleController.clear();
-    _loadTasks();
+    if (result == true) {
+      _loadTasks();
+    }
   }
 
   Future<void> _toggleTask(Task task) async {
@@ -50,56 +54,35 @@ class _TaskListScreenState extends State<TaskListScreen> {
       appBar: AppBar(
         title: const Text('Minhas Tarefas'),
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _titleController,
-                    decoration: const InputDecoration(
-                      hintText: 'Nova tarefa...',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: _addTask,
-                  child: const Text('Adicionar'),
-                ),
-              ],
+      body: ListView.builder(
+        itemCount: _tasks.length,
+        itemBuilder: (context, index) {
+          final task = _tasks[index];
+          return ListTile(
+            leading: Checkbox(
+              value: task.completed,
+              onChanged: (_) => _toggleTask(task),
             ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: _tasks.length,
-              itemBuilder: (context, index) {
-                final task = _tasks[index];
-                return ListTile(
-                  leading: Checkbox(
-                    value: task.completed,
-                    onChanged: (_) => _toggleTask(task),
-                  ),
-                  title: Text(
-                    task.title,
-                    style: TextStyle(
-                      decoration: task.completed
-                          ? TextDecoration.lineThrough
-                          : null,
-                    ),
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete),
-                    onPressed: () => _deleteTask(task.id),
-                  ),
-                );
-              },
+            title: Text(
+              task.title,
+              style: TextStyle(
+                decoration: task.completed
+                    ? TextDecoration.lineThrough
+                    : null,
+              ),
             ),
-          ),
-        ],
+            subtitle: Text(task.description),
+            trailing: IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: () => _deleteTask(task.id),
+            ),
+            onTap: () => _navigateToTaskForm(task: task),
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _navigateToTaskForm(),
+        child: const Icon(Icons.add),
       ),
     );
   }
