@@ -241,6 +241,41 @@ class TaskCard extends StatelessWidget {
                                 ),
                               ),
                             
+                            // Sincronização Pendente
+                            if (!task.isSynced)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withAlpha(25),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.orange.withAlpha(127),
+                                  ),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.cloud_upload_outlined,
+                                      size: 14,
+                                      color: Colors.orange,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Pendente',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.orange,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
                             // Shake
                             if (task.completed && task.wasCompletedByShake)
                               Container(

@@ -20,6 +20,10 @@ class Task {
   final double? longitude;
   final String? locationName;
 
+  // OFFLINE-FIRST
+  final bool isSynced;
+  final DateTime lastModified;
+
   Task({
     this.id,
     required this.title,
@@ -33,7 +37,10 @@ class Task {
     this.latitude,
     this.longitude,
     this.locationName,
-  }) : createdAt = createdAt ?? DateTime.now();
+    this.isSynced = true,
+    DateTime? lastModified,
+  }) : createdAt = createdAt ?? DateTime.now(),
+       lastModified = lastModified ?? DateTime.now();
 
   // Getters auxiliares
   bool get hasPhoto => photoPath != null && photoPath!.isNotEmpty;
@@ -54,6 +61,8 @@ class Task {
       'latitude': latitude,
       'longitude': longitude,
       'locationName': locationName,
+      'isSynced': isSynced ? 1 : 0,
+      'lastModified': lastModified.toIso8601String(),
     };
   }
 
@@ -73,6 +82,10 @@ class Task {
       latitude: map['latitude'] as double?,
       longitude: map['longitude'] as double?,
       locationName: map['locationName'] as String?,
+      isSynced: (map['isSynced'] as int?) == 1,
+      lastModified: map['lastModified'] != null 
+          ? DateTime.parse(map['lastModified'] as String)
+          : DateTime.now(),
     );
   }
 
@@ -89,6 +102,8 @@ class Task {
     double? latitude,
     double? longitude,
     String? locationName,
+    bool? isSynced,
+    DateTime? lastModified,
   }) {
     return Task(
       id: id ?? this.id,
@@ -103,6 +118,8 @@ class Task {
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       locationName: locationName ?? this.locationName,
+      isSynced: isSynced ?? this.isSynced,
+      lastModified: lastModified ?? this.lastModified,
     );
   }
 }

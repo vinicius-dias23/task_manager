@@ -4,6 +4,8 @@ import '../services/database_service.dart';
 import '../services/sensor_service.dart';
 import '../services/location_service.dart';
 import '../services/camera_service.dart';
+import '../services/connectivity_service.dart';
+import '../services/sync_service.dart';
 import '../screens/task_form_screen.dart';
 import '../widgets/task_card.dart';
 
@@ -18,17 +20,22 @@ class _TaskListScreenState extends State<TaskListScreen> {
   List<Task> _tasks = [];
   String _filter = 'all';
   bool _isLoading = true;
+  bool _isOnline = true;
+  bool _hasPendingSync = false;
 
   @override
   void initState() {
     super.initState();
     _loadTasks();
     _setupShakeDetection(); // INICIAR SHAKE
+    _setupConnectivityListener();
+    _checkPendingSync();
   }
 
   @override
   void dispose() {
     SensorService.instance.stop(); // PARAR SHAKE
+    ConnectivityService().dispose(); // Dispor do listener de conectividade
     super.dispose();
   }
 
@@ -147,6 +154,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
           _tasks = tasks;
           _isLoading = false;
         });
+        _checkPendingSync();
       }
     } catch (e) {
       if (mounted) {
@@ -297,6 +305,30 @@ class _TaskListScreenState extends State<TaskListScreen> {
     }
   }
 
+  // OFFLINE-FIRST
+  void _setupConnectivityListener() {
+    _isOnline = ConnectivityService().hasConnection;
+    ConnectivityService().connectionStatusStream.listen((isConnected) {
+      if (mounted) {
+        setState(() {
+          _isOnline = isConnected;
+        });
+      }
+      if (isConnected) {
+        _loadTasks(); // Recarrega para atualizar o status de sincronização
+      }
+    });
+  }
+
+  Future<void> _checkPendingSync() async {
+    final hasPending = await SyncService().hasPendingSyncItems();
+    if (mounted) {
+      setState(() {
+        _hasPendingSync = hasPending;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final stats = _statistics;
@@ -308,6 +340,26 @@ class _TaskListScreenState extends State<TaskListScreen> {
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
         actions: [
+          // Ícone de Status de Conectividade
+          Tooltip(
+            message: _isOnline ? 'Online' : 'Offline',
+            child: Icon(
+              _isOnline ? Icons.cloud_done : Icons.cloud_off,
+              color: _isOnline ? Colors.greenAccent : Colors.orangeAccent,
+            ),
+          ),
+          // Ícone de Sincronização Pendente
+          if (_hasPendingSync)
+            Tooltip(
+              message: 'Sincronização Pendente',
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Icon(
+                  Icons.cloud_upload,
+                  color: Colors.yellowAccent,
+                ),
+              ),
+            ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.filter_list),
             onSelected: (value) {

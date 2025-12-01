@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
 import './location_service.dart';
+import './sync_service.dart';
 import '../models/task.dart';
 
 class DatabaseService {
@@ -23,7 +24,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 4, // VERSÃO FINAL COM TODOS OS CAMPOS
+      version: 5, // VERSÃO OFFLINE-FIRST
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -34,22 +35,34 @@ class DatabaseService {
     const textType = 'TEXT NOT NULL';
     const intType = 'INTEGER NOT NULL';
 
-    await db.execute('''
-      CREATE TABLE tasks (
-        id $idType,
-        title $textType,
-        description $textType,
-        priority $textType,
-        completed $intType,
-        createdAt $textType,
-        photoPath TEXT,
-        completedAt TEXT,
-        completedBy TEXT,
-        latitude REAL,
-        longitude REAL,
-        locationName TEXT
-      )
-    ''');
+    await db.execute(
+      'CREATE TABLE tasks ('
+      'id $idType, '
+      'title $textType, '
+      'description $textType, '
+      'priority $textType, '
+      'completed $intType, '
+      'createdAt $textType, '
+      'photoPath TEXT, '
+      'completedAt TEXT, '
+      'completedBy TEXT, '
+      'latitude REAL, '
+      'longitude REAL, '
+      'locationName TEXT, '
+      'isSynced INTEGER NOT NULL, '
+      'lastModified TEXT NOT NULL'
+      ')'
+    );
+
+    await db.execute(
+      'CREATE TABLE sync_queue ('
+      'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+      'taskId INTEGER NOT NULL, '
+      'operation TEXT NOT NULL, '
+      'payload TEXT, '
+      'timestamp TEXT NOT NULL'
+      ')'
+    );
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -66,6 +79,20 @@ class DatabaseService {
       await db.execute('ALTER TABLE tasks ADD COLUMN longitude REAL');
       await db.execute('ALTER TABLE tasks ADD COLUMN locationName TEXT');
     }
+    if (oldVersion < 5) {
+      await db.execute('ALTER TABLE tasks ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 1');
+      await db.execute('ALTER TABLE tasks ADD COLUMN lastModified TEXT NOT NULL DEFAULT "${DateTime.now().toIso8601String()}"');
+      
+      await db.execute(
+        'CREATE TABLE sync_queue ('
+        'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+        'taskId INTEGER NOT NULL, '
+        'operation TEXT NOT NULL, '
+        'payload TEXT, '
+        'timestamp TEXT NOT NULL'
+        ')'
+      );
+    }
     print('✅ Banco migrado de v$oldVersion para v$newVersion');
   }
 
@@ -73,8 +100,15 @@ class DatabaseService {
   Future<Task> create(Task task) async {
     final db = await instance.database;
     // O campo 'id' é AUTOINCREMENT, então não passamos no insert
-    final id = await db.insert('tasks', task.toMap()..remove('id'));
-    return task.copyWith(id: id);
+    // Força a task a ser marcada como não sincronizada ao ser criada
+    final taskToInsert = task.copyWith(isSynced: false, lastModified: DateTime.now());
+    final id = await db.insert('tasks', taskToInsert.toMap()..remove('id'));
+    
+    // Adicionar à fila de sincronização
+    final createdTask = taskToInsert.copyWith(id: id);
+    SyncService().registerCreate(createdTask);
+    
+    return createdTask;
   }
 
   Future<Task?> read(int id) async {
@@ -100,16 +134,25 @@ class DatabaseService {
 
   Future<int> update(Task task) async {
     final db = await instance.database;
+    // Força a task a ser marcada como não sincronizada ao ser atualizada
+    final taskToUpdate = task.copyWith(isSynced: false, lastModified: DateTime.now());
+    
+    // Adicionar à fila de sincronização
+    SyncService().registerUpdate(taskToUpdate);
+    
     return db.update(
       'tasks',
-      task.toMap(),
+      taskToUpdate.toMap(),
       where: 'id = ?',
-      whereArgs: [task.id],
+      whereArgs: [taskToUpdate.id],
     );
   }
 
   Future<int> delete(int id) async {
     final db = await instance.database;
+    // Adicionar à fila de sincronização
+    SyncService().registerDelete(id);
+    
     return await db.delete(
       'tasks',
       where: 'id = ?',
