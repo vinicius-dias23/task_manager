@@ -134,11 +134,17 @@ class DatabaseService {
 
   Future<int> update(Task task) async {
     final db = await instance.database;
-    // Força a task a ser marcada como não sincronizada ao ser atualizada
-    final taskToUpdate = task.copyWith(isSynced: false, lastModified: DateTime.now());
     
-    // Adicionar à fila de sincronização
-    SyncService().registerUpdate(taskToUpdate);
+    // Se a tarefa já está marcada como sincronizada, assumimos que a chamada
+    // veio do SyncService e não precisamos forçar isSynced=false ou registrar na fila.
+    final taskToUpdate = task.isSynced
+        ? task // Veio do SyncService, apenas atualiza
+        : task.copyWith(isSynced: false, lastModified: DateTime.now()); // Veio da UI, marca como pendente
+    
+    if (!task.isSynced) {
+      // Adicionar à fila de sincronização APENAS se veio da UI
+      SyncService().registerUpdate(taskToUpdate);
+    }
     
     return db.update(
       'tasks',

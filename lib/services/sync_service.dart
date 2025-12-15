@@ -112,6 +112,7 @@ class SyncService {
         
         Task? localTask;
         if (item.operation != 'DELETE') {
+          // O payload é a versão local da Task que precisa ser sincronizada
           localTask = Task.fromMap(jsonDecode(item.payload!));
         }
 
@@ -124,6 +125,7 @@ class SyncService {
           // e a marcação como sincronizado.
           
           // Simular que o servidor retornou sucesso e a task está sincronizada
+          // Usamos o update do DatabaseService, que agora aceita a task sincronizada
           final syncedTask = localTask!.copyWith(isSynced: true);
           
           // Atualizar o banco de dados local com a task sincronizada
@@ -132,6 +134,7 @@ class SyncService {
         } else if (item.operation == 'DELETE') {
           // Simular o envio do DELETE para o servidor.
           // A tarefa já foi deletada localmente, apenas removemos da fila.
+          // Não precisamos fazer nada no DB local, pois o delete já foi feito.
         }
 
         // 2. Remover da fila após sucesso
