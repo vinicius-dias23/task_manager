@@ -52,6 +52,10 @@ class SyncService {
   final ConnectivityService _connectivityService = ConnectivityService();
   
   bool _isSyncing = false;
+  final StreamController<bool> _syncStatusController = StreamController<bool>.broadcast();
+  
+  // Stream para notificar quando a sincronização terminar
+  Stream<bool> get syncStatusStream => _syncStatusController.stream;
 
   void initialize() {
     _connectivityService.connectionStatusStream.listen((isConnected) {
@@ -103,8 +107,12 @@ class SyncService {
 
     for (final item in queue) {
       try {
-        // Simulação de chamada de API
-        await Future.delayed(const Duration(milliseconds: 500)); 
+        if (kDebugMode) {
+          print('Syncing ${item.operation} for Task ${item.taskId}...');
+        }
+        
+        // Simulação de chamada de API com delay maior para visualizar melhor
+        await Future.delayed(const Duration(milliseconds: 2000)); 
         
         // 1. Simular a obtenção da versão do servidor (para LWW)
         // Em um cenário real, você chamaria a API para obter a versão do servidor.
@@ -131,10 +139,17 @@ class SyncService {
           // Atualizar o banco de dados local com a task sincronizada
           await _dbService.update(syncedTask);
           
+          if (kDebugMode) {
+            print('✅ Task ${item.taskId} sincronizada com sucesso!');
+          }
+          
         } else if (item.operation == 'DELETE') {
           // Simular o envio do DELETE para o servidor.
           // A tarefa já foi deletada localmente, apenas removemos da fila.
           // Não precisamos fazer nada no DB local, pois o delete já foi feito.
+          if (kDebugMode) {
+            print('✅ DELETE para Task ${item.taskId} sincronizado com sucesso!');
+          }
         }
 
         // 2. Remover da fila após sucesso
@@ -145,7 +160,7 @@ class SyncService {
 
       } catch (e) {
         if (kDebugMode) {
-          print('Sync Error for Task ${item.taskId}: $e. Stopping sync.');
+          print('❌ Sync Error for Task ${item.taskId}: $e. Stopping sync.');
         }
         // Parar a sincronização no primeiro erro
         break; 
@@ -156,6 +171,12 @@ class SyncService {
     if (kDebugMode) {
       print('--- Sync Process Finished ---');
     }
+    // Notificar que a sincronização terminou
+    _syncStatusController.add(true);
+  }
+  
+  void dispose() {
+    _syncStatusController.close();
   }
   
   // --- Métodos de Integração com DatabaseService ---
@@ -171,6 +192,10 @@ class SyncService {
       timestamp: task.lastModified,
     );
     await _addToSyncQueue(item);
+    // Acionar sincronização após um pequeno delay para simular
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      syncNow();
+    });
   }
 
   Future<void> registerUpdate(Task task) async {
@@ -181,6 +206,10 @@ class SyncService {
       timestamp: task.lastModified,
     );
     await _addToSyncQueue(item);
+    // Acionar sincronização após um pequeno delay para simular
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      syncNow();
+    });
   }
 
   Future<void> registerDelete(int taskId) async {
@@ -190,6 +219,17 @@ class SyncService {
       timestamp: DateTime.now(),
     );
     await _addToSyncQueue(item);
+    // Acionar sincronização após um pequeno delay para simular
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      syncNow();
+    });
+  }
+  
+  // Método público para acionar sincronização manualmente
+  Future<void> syncNow() async {
+    if (_connectivityService.hasConnection) {
+      await _startSyncProcess();
+    }
   }
   
   // Método auxiliar para verificar se há itens pendentes

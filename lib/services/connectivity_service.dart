@@ -22,21 +22,23 @@ class ConnectivityService {
   }
 
   Future<void> _checkInitialConnection() async {
-    // checkConnectivity() retorna Future<ConnectivityResult> na versão antiga
-    final result = await _connectivity.checkConnectivity();
-    _updateConnectionStatus(result);
+    // SIMULAÇÃO: Sempre inicia como conectado
+    _hasConnection = true;
+    _connectionStatusController.add(_hasConnection);
+    if (kDebugMode) {
+      print('Connectivity Status: Online (SIMULADO)');
+    }
   }
 
   void _updateConnectionStatus(ConnectivityResult result) {
-    final isConnected = result == ConnectivityResult.mobile ||
-                        result == ConnectivityResult.wifi ||
-                        result == ConnectivityResult.ethernet;
+    // SIMULAÇÃO: Sempre retorna como conectado para permitir sincronização simulada
+    final isConnected = true; // Simulado - sempre conectado
     
     if (_hasConnection != isConnected) {
       _hasConnection = isConnected;
       _connectionStatusController.add(_hasConnection);
       if (kDebugMode) {
-        print('Connectivity Status Changed: ${_hasConnection ? 'Online' : 'Offline'}');
+        print('Connectivity Status Changed: ${_hasConnection ? 'Online' : 'Offline'} (SIMULADO)');
       }
     }
   }

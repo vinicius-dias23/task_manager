@@ -29,6 +29,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
     _loadTasks();
     _setupShakeDetection(); // INICIAR SHAKE
     _setupConnectivityListener();
+    _setupSyncListener();
     _checkPendingSync();
   }
 
@@ -327,6 +328,17 @@ class _TaskListScreenState extends State<TaskListScreen> {
         _hasPendingSync = hasPending;
       });
     }
+  }
+  
+  // Listener para sincronização
+  void _setupSyncListener() {
+    SyncService().syncStatusStream.listen((_) {
+      // Quando a sincronização terminar, recarregar tarefas e verificar pendências
+      if (mounted) {
+        _loadTasks();
+        _checkPendingSync();
+      }
+    });
   }
 
   @override
